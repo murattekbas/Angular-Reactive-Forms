@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { FormGroup,FormControl, FormBuilder,Validators, AbstractControl, ValidatorFn } from '@angular/forms';
-import {debounceTime} from 'rxjs/operators';
+import { FormGroup, FormControl, FormBuilder, Validators, AbstractControl, ValidatorFn,FormArray } from '@angular/forms';
+import { debounceTime } from 'rxjs/operators';
 import { Customer } from './customer';
 
 //Customer validator
@@ -13,10 +13,10 @@ import { Customer } from './customer';
 } */
 
 //Custom validator with parameters - return ValidatorFn 
-function ratingRange(min:number,max:number):ValidatorFn{
-  return (c:AbstractControl):{[key:string]:boolean}|null=>{
-    if (c.value!==null&&(isNaN(c.value)|| c.value<min || c.value>max)){
-      return {'range':true};
+function ratingRange(min: number, max: number): ValidatorFn {
+  return (c: AbstractControl): { [key: string]: boolean } | null => {
+    if (c.value !== null && (isNaN(c.value) || c.value < min || c.value > max)) {
+      return { 'range': true };
     }
     return null;
   }
@@ -24,9 +24,11 @@ function ratingRange(min:number,max:number):ValidatorFn{
 
 //Cross-field custom validator
 function emailMatcher(c: AbstractControl): { [key: string]: boolean } | null {
-  const emailControl= c.get('email');
-  const confirmControl= c.get('confirmEmail');
-  let emailMessage:string;
+  const emailControl = c.get('email');
+  const confirmControl = c.get('confirmEmail');
+  let emailMessage: string;
+
+  
 
   if (emailControl?.pristine || confirmControl?.pristine) {
     return null;
@@ -48,63 +50,85 @@ export class CustomerComponent implements OnInit {
   customer = new Customer();
   emailMessage!: string;
 
-  private validationMessages:{[key:string]:string}={
-    required:'Please enter your email address.',
-    email:'Please enter a valid email address.'
+  get addresses(): any {
+    return (this.customerForm.get('addresses') as FormArray);
   }
 
-  constructor(private fb:FormBuilder) { }
+  private validationMessages: { [key: string]: string } = {
+    required: 'Please enter your email address.',
+    email: 'Please enter a valid email address.'
+  }
+
+  constructor(private fb: FormBuilder) { }
 
   ngOnInit(): void {
     //Form Model
     //Array syntax is the one we use to set validation rules for the FormControl
-    this.customerForm=this.fb.group({
-      firstName:['',[Validators.required,Validators.minLength(3)]],
+    this.customerForm = this.fb.group({
+      firstName: ['', [Validators.required, Validators.minLength(3)]],
       // lastName:{value:'n/a',disabled:true},
-      lastName:['',[Validators.required,Validators.maxLength(50)]],
-      emailGroup:this.fb.group({
-        email:['',[Validators.required,Validators.email]],
-        confirmEmail:['',[Validators.required]]
-      },{validator:emailMatcher}),
-      phone:'',
-      notification:'email',
-      rating:[null,ratingRange(1,5)],
-      sendCatalog:true,
+      lastName: ['', [Validators.required, Validators.maxLength(50)]],
+      emailGroup: this.fb.group({
+        email: ['', [Validators.required, Validators.email]],
+        confirmEmail: ['', [Validators.required]]
+      }, { validator: emailMatcher }),
+      phone: '',
+      notification: 'email',
+      rating: [null, ratingRange(1, 5)],
+      sendCatalog: true,
+      addresses: this.fb.array([this.buildAddress()])
+
+
     });
 
-    this.customerForm.get('notification')?.valueChanges.subscribe(value=>this.setNotification(value));
+    this.customerForm.get('notification')?.valueChanges.subscribe(value => this.setNotification(value));
 
-    const emailControl=this.customerForm.get('emailGroup.email');
+    const emailControl = this.customerForm.get('emailGroup.email');
     emailControl?.valueChanges.pipe(debounceTime(1000)).subscribe(
-      value=>this.setMessage(emailControl));
+      value => this.setMessage(emailControl));
 
 
-/* 
-    this.customerForm=new FormGroup({
-      firstName:new FormControl(),
-      lastName:new FormControl(),
-      email:new FormControl(),
-      sendCatalog:new FormControl(true),
-
-    }); */
+    /* 
+        this.customerForm=new FormGroup({
+          firstName:new FormControl(),
+          lastName:new FormControl(),
+          email:new FormControl(),
+          sendCatalog:new FormControl(true),
+    
+        }); */
   }
 
-  save(){
+  save() {
     console.log(this.customerForm);
     console.log('Saved: ' + JSON.stringify(this.customerForm.value));
   }
 
-  populateTestData(){
+  addAddress(): void {
+    this.addresses.push(this.buildAddress());
+  }
+
+  buildAddress(): FormGroup {
+    return this.fb.group({
+      addressType: 'home',
+      street1: ['', Validators.required],
+      street2: '',
+      city: '',
+      state: '',
+      zip: ''
+    });
+  }
+
+  populateTestData() {
     //use patchValue for setting partial members
     this.customerForm.setValue({
-      firstName:'Jack',
-      lastName:'Harkness',
-      email:'jack@torchwood.com',
-      rating:null,
-      sendCatalog:false
+      firstName: 'Jack',
+      lastName: 'Harkness',
+      email: 'jack@torchwood.com',
+      rating: null,
+      sendCatalog: false
     });
 
-    
+
   }
 
   setMessage(c: AbstractControl): void {
@@ -117,15 +141,15 @@ export class CustomerComponent implements OnInit {
 
 
   //Adjusting validation rule at runtime
-  setNotification(notifyVia:string):void{
-    const phoneControl=this.customerForm.get('phone');
-    if (notifyVia==='text'){
+  setNotification(notifyVia: string): void {
+    const phoneControl = this.customerForm.get('phone');
+    if (notifyVia === 'text') {
       phoneControl?.setValidators(Validators.required);
-    }else{
+    } else {
       phoneControl?.clearValidators();
     }
     phoneControl?.updateValueAndValidity();
-      
+
   }
 
 }
